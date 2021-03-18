@@ -22,7 +22,7 @@ export const DruidAuthSettings: FC<ConnectionSettingsProps> = (props: Connection
         `}
       >
         <Field horizontal label="With basic authentication" description="Enable HTTP Basic authentication">
-          <Switch value={settings.basicAuth} onChange={onSettingChange} />
+          <Switch value={settings.basicAuth} onChange={onSettingChange} css />
         </Field>
       </FieldSet>
       {settings.basicAuth && (
