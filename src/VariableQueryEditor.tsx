@@ -7,8 +7,6 @@ import { DruidQuerySettings } from './configuration/QuerySettings';
 import { QuerySettingsOptions } from './configuration/QuerySettings/types';
 import { DruidQueryBuilder } from './builder/';
 import { QueryBuilderOptions } from './builder/types';
-import { css } from 'emotion';
-// import {} from '@emotion/core';
 
 enum Tabs {
   Builder,
