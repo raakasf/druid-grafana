@@ -11,7 +11,7 @@
       "./node_modules/@types"
     ],
     "types": [
-      "@emotion/react/types/css-prop",
+      // "@emotion/react/types/css-prop",
       "@types/jest"
     ]
   }
