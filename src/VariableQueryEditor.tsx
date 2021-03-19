@@ -2,6 +2,7 @@ import React, { PureComponent } from 'react';
 import { TabsBar, Tab, TabContent, IconName } from '@grafana/ui';
 import { SelectableValue } from '@grafana/data';
 import { DruidQuery } from './types';
+import ErrorBoundary from 'ErrorBoundary';
 import { DruidQuerySettings } from './configuration/QuerySettings';
 import { QuerySettingsOptions } from './configuration/QuerySettings/types';
 import { DruidQueryBuilder } from './builder/';
@@ -86,18 +87,20 @@ export class VariableQueryEditor extends PureComponent<Props, State> {
 
     return (
       <>
-        <TabsBar>
-          {tabs.map((t) => (
-            <Tab
-              key={t.value}
-              label={t.label}
-              active={t.value === activeTab}
-              onChangeTab={() => this.onSelectTab(t)}
-              icon={t.icon as IconName}
-            />
-          ))}
-        </TabsBar>
-        <TabContent>{tabs.find((t) => t.value === activeTab)?.content}</TabContent>
+        <ErrorBoundary>
+          <TabsBar>
+            {tabs.map((t) => (
+              <Tab
+                key={t.value}
+                label={t.label}
+                active={t.value === activeTab}
+                onChangeTab={() => this.onSelectTab(t)}
+                icon={t.icon as IconName}
+              />
+            ))}
+          </TabsBar>
+          <TabContent>{tabs.find((t) => t.value === activeTab)?.content}</TabContent>
+        </ErrorBoundary>
       </>
     );
   }
