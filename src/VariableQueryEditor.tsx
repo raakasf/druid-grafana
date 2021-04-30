@@ -6,6 +6,7 @@ import { DruidQuerySettings } from './configuration/QuerySettings';
 import { QuerySettingsOptions } from './configuration/QuerySettings/types';
 import { DruidQueryBuilder } from './builder/';
 import { QueryBuilderOptions } from './builder/types';
+import ErrorBoundary from './ErrorBoundary';
 
 enum Tabs {
   Builder,
@@ -101,7 +102,9 @@ export class VariableQueryEditor extends PureComponent<Props, State> {
             />
           ))}
         </TabsBar>
-        <TabContent>{tabs.find((t) => t.value === activeTab)?.content}</TabContent>
+        <ErrorBoundary>
+          <TabContent>{tabs.find((t) => t.value === activeTab)?.content}</TabContent>
+        </ErrorBoundary>
       </>
     );
   }
