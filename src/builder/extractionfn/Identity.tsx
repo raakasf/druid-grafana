@@ -1,37 +1,27 @@
-import React, { PureComponent } from 'react';
-import { css } from 'emotion';
+import React, { useState } from 'react';
+import { InfoBox } from '@grafana/ui';
 import { QueryBuilderProps } from '../types';
+import { useQueryBuilderAutoSubmit, Row } from '../abstract';
 
-export class Identity extends PureComponent<QueryBuilderProps> {
-  constructor(props: QueryBuilderProps) {
-    super(props);
-    this.resetBuilder(['type']);
-    const { builder } = props.options;
-    builder.type = 'identity';
-  }
-
-  resetBuilder = (properties: string[]) => {
-    const { builder } = this.props.options;
-    for (let key of Object.keys(builder)) {
-      if (!properties.includes(key)) {
-        delete builder[key];
-      }
-    }
-  };
-
-  render() {
-    return (
-      <>
-        <div className="gf-form">
-          <div
-            className={css`
-              width: 300px;
-            `}
+export const Identity = (props: QueryBuilderProps) => {
+  useQueryBuilderAutoSubmit(props, Identity);
+  const [showInfo, setShowInfo] = useState(true);
+  return (
+    <>
+      {showInfo && (
+        <Row>
+          <InfoBox
+            title="Identity"
+            onDismiss={() => {
+              setShowInfo(false);
+            }}
           >
-            Identity. Whatever it does.
-          </div>
-        </div>
-      </>
-    );
-  }
-}
+            <p>Identity. Whatever it does.</p>
+          </InfoBox>
+        </Row>
+      )}
+    </>
+  );
+};
+Identity.type = 'identity';
+Identity.fields = [] as string[];

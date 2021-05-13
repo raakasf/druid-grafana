@@ -1,37 +1,27 @@
-import React, { PureComponent } from 'react';
-import { css } from 'emotion';
+import React, { useState } from 'react';
+import { InfoBox } from '@grafana/ui';
 import { QueryBuilderProps } from '../types';
+import { useQueryBuilderAutoSubmit, Row } from '../abstract';
 
-export class StrLen extends PureComponent<QueryBuilderProps> {
-  constructor(props: QueryBuilderProps) {
-    super(props);
-    this.resetBuilder(['type']);
-    const { builder } = props.options;
-    builder.type = 'strlen';
-  }
-
-  resetBuilder = (properties: string[]) => {
-    const { builder } = this.props.options;
-    for (let key of Object.keys(builder)) {
-      if (!properties.includes(key)) {
-        delete builder[key];
-      }
-    }
-  };
-
-  render() {
-    return (
-      <>
-        <div className="gf-form">
-          <div
-            className={css`
-              width: 300px;
-            `}
+export const StrLen = (props: QueryBuilderProps) => {
+  useQueryBuilderAutoSubmit(props, StrLen);
+  const [showInfo, setShowInfo] = useState(true);
+  return (
+    <>
+      {showInfo && (
+        <Row>
+          <InfoBox
+            title="StrLen"
+            onDismiss={() => {
+              setShowInfo(false);
+            }}
           >
-            Returns the length of dimension values (as if they were encoded in UTF-16)
-          </div>
-        </div>
-      </>
-    );
-  }
-}
+            <p>Returns the length of dimension values (as if they were encoded in UTF-16)</p>
+          </InfoBox>
+        </Row>
+      )}
+    </>
+  );
+};
+StrLen.type = 'strlen';
+StrLen.fields = [] as string[];

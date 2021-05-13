@@ -1,39 +1,27 @@
-import React, { PureComponent } from 'react';
-import { css } from 'emotion';
+import React, { useState } from 'react';
+import { InfoBox } from '@grafana/ui';
 import { QueryBuilderProps } from '../types';
+import { useQueryBuilderAutoSubmit, Row } from '../abstract';
 
-export class All extends PureComponent<QueryBuilderProps> {
-  constructor(props: QueryBuilderProps) {
-    super(props);
-    this.resetBuilder(['type']);
-    const { options, onOptionsChange } = this.props;
-    const { builder } = options;
-    builder.type = 'all';
-    onOptionsChange({ ...options, builder: builder });
-  }
-
-  resetBuilder = (properties: string[]) => {
-    const { builder } = this.props.options;
-    for (let key of Object.keys(builder)) {
-      if (!properties.includes(key)) {
-        delete builder[key];
-      }
-    }
-  };
-
-  render() {
-    return (
-      <>
-        <div className="gf-form">
-          <div
-            className={css`
-              width: 300px;
-            `}
+export const All = (props: QueryBuilderProps) => {
+  useQueryBuilderAutoSubmit(props, All);
+  const [showInfo, setShowInfo] = useState(true);
+  return (
+    <>
+      {showInfo && (
+        <Row>
+          <InfoBox
+            title="All"
+            onDismiss={() => {
+              setShowInfo(false);
+            }}
           >
-            All columns should be included in the result
-          </div>
-        </div>
-      </>
-    );
-  }
-}
+            <p>All columns should be included in the result.</p>
+          </InfoBox>
+        </Row>
+      )}
+    </>
+  );
+};
+All.type = 'all';
+All.fields = [] as string[];
