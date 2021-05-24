@@ -28,11 +28,21 @@ type druidQuery struct {
 }
 
 type druidResponse struct {
-	Columns []struct {
+	Reference string
+	Columns   []struct {
 		Name string
 		Type string
 	}
 	Rows [][]interface{}
+}
+
+type druidInstanceSettings struct {
+	client               *druid.Client
+	defaultQuerySettings map[string]interface{}
+}
+
+func (s *druidInstanceSettings) Dispose() {
+	s.client.Close()
 }
 
 func newDataSourceInstance(settings backend.DataSourceInstanceSettings) (instancemgmt.Instance, error) {
@@ -55,7 +65,7 @@ func newDataSourceInstance(settings backend.DataSourceInstanceSettings) (instanc
 	if basicAuth := data.Get("connection.basicAuth").MustBool(); basicAuth {
 		druidOpts = append(druidOpts, druid.WithBasicAuth(data.Get("connection.basicAuthUser").MustString(), secureData["connection.basicAuthPassword"]))
 	}
-	if skipTls := data.Get("connection.skipTls").MustBool(); skipTls {
+	if skipTLS := data.Get("connection.skipTls").MustBool(); skipTLS {
 		druidOpts = append(druidOpts, druid.WithSkipTLSVerify())
 	}
 
@@ -63,19 +73,36 @@ func newDataSourceInstance(settings backend.DataSourceInstanceSettings) (instanc
 	if err != nil {
 		return &druidInstanceSettings{}, err
 	}
+
 	return &druidInstanceSettings{
-		client:                 c,
-		queryContextParameters: data.Get("query.contextParameters").MustArray(),
+		client:               c,
+		defaultQuerySettings: prepareQuerySettings(settings.JSONData),
 	}, nil
 }
 
-type druidInstanceSettings struct {
-	client                 *druid.Client
-	queryContextParameters []interface{}
+func prepareQuerySettings(data json.RawMessage) map[string]interface{} {
+	var d map[string]interface{}
+	settings := make(map[string]interface{})
+	err := json.Unmarshal(data, &d)
+	if err != nil {
+		return settings
+	}
+	for k, v := range d {
+		if strings.HasPrefix(k, "query.") {
+			settings[strings.TrimPrefix(k, "query.")] = v
+		}
+	}
+	return settings
 }
 
-func (s *druidInstanceSettings) Dispose() {
-	s.client.Close()
+func mergeSettings(settings ...map[string]interface{}) map[string]interface{} {
+	stg := make(map[string]interface{})
+	for _, s := range settings {
+		for k, v := range s {
+			stg[k] = v
+		}
+	}
+	return stg
 }
 
 func newDatasource() datasource.ServeOpts {
@@ -143,7 +170,7 @@ func (ds *druidDatasource) queryVariable(qry []byte, s *druidInstanceSettings) (
 		return response, err
 	}
 	log.DefaultLogger.Info("DRUID EXECUTE QUERY VARIABLE", "_________________________DRUID QUERY___________________________", q)
-	r, err := ds.executeQuery(q, s, stg)
+	r, err := ds.executeQuery("variable", q, s, stg)
 	if err != nil {
 		return response, err
 	}
@@ -271,7 +298,7 @@ func (ds *druidDatasource) query(qry backend.DataQuery, s *druidInstanceSettings
 		return response
 	}
 	log.DefaultLogger.Info("DRUID EXECUTE QUERY", "_________________________DRUID QUERY___________________________", q)
-	r, err := ds.executeQuery(q, s, stg)
+	r, err := ds.executeQuery(qry.RefID, q, s, stg)
 	if err != nil {
 		response.Error = err
 		return response
@@ -292,25 +319,23 @@ func (ds *druidDatasource) prepareQuery(qry []byte, s *druidInstanceSettings) (d
 	if err != nil {
 		return nil, nil, err
 	}
-
-	if queryContextParameters, ok := q.Settings["contextParameters"]; ok {
-		q.Builder["context"] = ds.mergeQueryContexts(
-			ds.prepareQueryContext(s.queryContextParameters),
-			ds.prepareQueryContext(queryContextParameters.([]interface{})))
-	} else {
-		q.Builder["context"] = ds.prepareQueryContext(s.queryContextParameters)
+	var defaultQueryContext map[string]interface{}
+	if defaultContextParameters, ok := s.defaultQuerySettings["contextParameters"]; ok {
+		defaultQueryContext = ds.prepareQueryContext(defaultContextParameters.([]interface{}))
 	}
-
+	q.Builder["context"] = defaultQueryContext
+	if queryContextParameters, ok := q.Settings["contextParameters"]; ok {
+		q.Builder["context"] = mergeSettings(
+			defaultQueryContext,
+			ds.prepareQueryContext(queryContextParameters.([]interface{})))
+	}
 	jsonQuery, err := json.Marshal(q.Builder)
 	if err != nil {
 		return nil, nil, err
 	}
-	log.DefaultLogger.Info("DRUID EXECUTE QUERY", "_________________________DRUID JSON QUERY___________________________", string(jsonQuery))
-
 	query, err := s.client.Query().Load(jsonQuery)
 	// feature: could ensure __time column is selected, time interval is set based on qry given timerange and consider max data points ?
-
-	return query, q.Settings, err
+	return query, mergeSettings(s.defaultQuerySettings, q.Settings), err
 }
 
 func (ds *druidDatasource) prepareQueryContext(parameters []interface{}) map[string]interface{} {
@@ -324,19 +349,9 @@ func (ds *druidDatasource) prepareQueryContext(parameters []interface{}) map[str
 	return ctx
 }
 
-func (ds *druidDatasource) mergeQueryContexts(contexts ...map[string]interface{}) map[string]interface{} {
-	ctx := make(map[string]interface{})
-	for _, c := range contexts {
-		for k, v := range c {
-			ctx[k] = v
-		}
-	}
-	return ctx
-}
-
-func (ds *druidDatasource) executeQuery(q druidquerybuilder.Query, s *druidInstanceSettings, settings map[string]interface{}) (*druidResponse, error) {
+func (ds *druidDatasource) executeQuery(queryRef string, q druidquerybuilder.Query, s *druidInstanceSettings, settings map[string]interface{}) (*druidResponse, error) {
 	// refactor: probably need to extract per-query preprocessor and postprocessor into a per-query file. load those "plugins" (ak. QueryProcessor ?) into a register and then do something like plugins[q.Type()].preprocess(q) and plugins[q.Type()].postprocess(r)
-	r := &druidResponse{}
+	r := &druidResponse{Reference: queryRef}
 	qtyp := q.Type()
 	switch qtyp {
 	case "sql":
@@ -726,7 +741,7 @@ func (ds *druidDatasource) executeQuery(q druidquerybuilder.Query, s *druidInsta
 func (ds *druidDatasource) prepareResponse(resp *druidResponse, settings map[string]interface{}) (backend.DataResponse, error) {
 	// refactor: probably some method that returns a container (make([]whattypeever, 0)) and its related appender func based on column type)
 	response := backend.DataResponse{}
-	frame := data.NewFrame("response")
+	frame := data.NewFrame(resp.Reference)
 	// fetch settings
 	hideEmptyColumns, _ := settings["hideEmptyColumns"].(bool)
 	responseLimit, _ := settings["responseLimit"].(float64)
@@ -739,7 +754,7 @@ func (ds *druidDatasource) prepareResponse(resp *druidResponse, settings map[str
 	// turn druid response into grafana long frame
 	if responseLimit > 0 && len(resp.Rows) > int(responseLimit) {
 		resp.Rows = resp.Rows[:int(responseLimit)]
-		response.Error = fmt.Errorf("Query response limit exceeded (limit: %d rows). Consider adding filters and/or reducing the query time range.", int(responseLimit))
+		response.Error = fmt.Errorf("query response limit exceeded (> %d rows): consider adding filters and/or reducing the query time range", int(responseLimit))
 	}
 	for ic, c := range resp.Columns {
 		var ff interface{}
