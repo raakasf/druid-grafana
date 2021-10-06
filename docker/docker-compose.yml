@@ -38,6 +38,15 @@ services:
       - coordinator_var:/opt/druid/var:z
       - ./druid/properties:/properties:z
 
+  smtp:
+    image: gessnerfl/fake-smtp-server
+    depends_on:
+      - broker
+    ports:
+      - 5025:5025
+    restart: on-failure
+    user: root
+
   grafana:
     depends_on:
       - broker
