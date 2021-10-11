@@ -15,6 +15,10 @@ export const QueryEditor = (props: Props) => {
   const { builder, settings } = props.query;
   const builderOptions = { builder: builder || {}, settings: settings || {} };
   const settingsOptions = { settings: settings || {} };
+  builder.range = {
+    from: [props.range?.from.toISOString() + '/' + props.range?.to.toISOString()],
+  };
+
   const onBuilderOptionsChange = (queryBuilderOptions: QueryBuilderOptions) => {
     const { query, onChange, onRunQuery } = props;
     //todo: need to implement some kind of hook system to alter a query from modules
@@ -26,7 +30,7 @@ export const QueryEditor = (props: Props) => {
     ) {
       queryBuilderOptions.builder.intervals = {
         type: 'intervals',
-        intervals: ['${__from:date:iso}/${__to:date:iso}'],
+        intervals: [props.range?.from.toISOString() + '/' + props.range?.to.toISOString()],
       };
     }
     //workaround: https://github.com/grafana/grafana/issues/30013
