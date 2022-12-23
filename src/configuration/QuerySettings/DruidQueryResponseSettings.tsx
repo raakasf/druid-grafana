@@ -43,6 +43,7 @@ export const DruidQueryResponseSettings = (props: QuerySettingsProps) => {
         <InlineField label="Response Limit" tooltip="Limit the response rows to prevent browser overload">
           <Input
             type="number"
+            data-testid="code-input"
             placeholder="Rows limit number. e.g: 1000"
             value={settings.responseLimit}
             onChange={onResponseLimitChange}
