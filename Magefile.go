@@ -21,12 +21,12 @@ const (
 	defaultCoordinatorURL string = "http://coordinator:8081"
 	defaultBrokerURL      string = "http://broker:8082"
 	taskEndpoint          string = "/druid/indexer/v1/task"
-	grafanaVersion        string = "9.1.6"
+	grafanaVersion        string = "10.4.8"
 )
 
 var (
 	useDocker          bool = os.Getenv("GRAFADRUID_USE_DOCKER") != "0"
-	useDockerComposeV2 bool = os.Getenv("GRAFADRUID_USE_DOCKER_COMPOSE_V2") == "1"
+	useDockerComposeV2 bool = true // Default to v2 since v1 is deprecated
 )
 
 func getDockerComposeCmdPrefix() []string {
