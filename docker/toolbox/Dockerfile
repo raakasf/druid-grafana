@@ -1,4 +1,4 @@
-FROM node:16-alpine3.16
+FROM node:20-alpine3.19
 WORKDIR /workspace
 ENV CGO_ENABLED=0
 RUN apk add --no-cache git python3 curl && \
