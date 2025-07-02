@@ -5,16 +5,24 @@ For more technical information about backend plugins, refer to the documentation
 
 ## Development environment
 
-The unified development environment is built atop Docker containers, composed with Docker Compose. It provides a running Druid instance, a running Grafana instance (use druid/druid as username/password to login), and a builder container.
-You, only, gonna need to install Compose (See https://docs.docker.com/compose/install).
+The unified development environment is built atop Docker containers, composed with Docker Compose v2. It provides a running Druid instance, a running Grafana instance (use druid/druid as username/password to login), and a toolbox container for building.
 
-Any "building" is done within the `builder` container (that saves you from setting up Node and Golang development environments on your host).
+### Prerequisites
+- Docker with Compose v2 (use `docker compose` command)
+- The project automatically uses Docker Compose v2 syntax
 
-Mage (See https://magefile.org) is used in order to run commands over that environment (mostly within that `builder` container).
+Any building is done within the `toolbox` container which includes:
+- Node.js 20 with latest npm
+- Go compiler
+- Git and other build tools
 
-_If you don't want to run commands in that development environment container, you can set the environment variable `GRAFADRUID_USE_DOCKER=0` and the commands will be run against your host._
+This saves you from setting up Node and Golang development environments on your host.
 
-In the same "plug & play" spirit, Mage is provided as a binary so you don't have have to install it locally.
+Mage (See https://magefile.org) is used to run commands over the environment (mostly within the `toolbox` container).
+
+_If you don't want to run commands in the development environment container, you can set the environment variable `GRAFADRUID_USE_DOCKER=0` and the commands will be run against your host._
+
+In the same "plug & play" spirit, Mage is provided as a binary so you don't have to install it locally.
 
 - To start the environment, run: `./mage env:start`
 - To stop the environment, run: `./mage env:stop`
@@ -27,6 +35,9 @@ Once the env is started (with `./mage env:start`) you can build plugin parts or 
 
 Few more targets are available (tests, cleanup, ...), you can list them all with `./mage -l`.
 
-_If you update `Magefile.go`, you could use `./mage env:updateMage` in order to update the mage binary._
+### Development Tips
 
-_Beware the `sdk:*` (provided by Grafana backend plugin SDK) targets won't run within the container, but directly on the host; those commands are exactly the ones proxied thru the `builder` container thru the `backend:*` targets_
+- If you update `Magefile.go`, use `./mage env:updateMage` to update the mage binary
+- The `sdk:*` targets (provided by Grafana backend plugin SDK) run within the container via the `backend:*` targets
+- Use `./mage -l` to list all available targets
+- Environment variables are configured in the `.env` file at the project root
