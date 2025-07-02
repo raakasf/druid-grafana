@@ -135,23 +135,37 @@ func (Frontend) Build() error {
 	if err != nil {
 		return err
 	}
-	return runToolboxCmd("npx", "--yes", "@grafana/toolkit@"+grafanaVersion, "plugin:build")
-	// return runToolboxCmd("npx", "--yes", "@grafana/toolkit@"+grafanaVersion, "plugin:build", "--preserveConsole")
+	return runToolboxCmd("yarn", "build")
 }
 
 // Test runs frontend tests
 func (Frontend) Test() error {
-	return runToolboxCmd("npx", "--yes", "@grafana/toolkit@"+grafanaVersion, "plugin:test")
+	return runToolboxCmd("yarn", "test:ci")
 }
 
 // Dev runs frontend in development mode
 func (Frontend) Dev() error {
-	return runToolboxCmd("npx", "--yes", "@grafana/toolkit@"+grafanaVersion, "plugin:dev")
+	return runToolboxCmd("yarn", "dev")
 }
 
 // Watch runs frontend in development mode + autoreload on changes
 func (Frontend) Watch() error {
-	return runToolboxCmd("npx", "--yes", "@grafana/toolkit@"+grafanaVersion, "plugin:dev", "--watch")
+	return runToolboxCmd("yarn", "dev")
+}
+
+// Lint runs frontend linting
+func (Frontend) Lint() error {
+	return runToolboxCmd("yarn", "lint")
+}
+
+// LintFix runs frontend linting with auto-fix
+func (Frontend) LintFix() error {
+	return runToolboxCmd("yarn", "lint:fix")
+}
+
+// Typecheck runs frontend TypeScript type checking
+func (Frontend) Typecheck() error {
+	return runToolboxCmd("yarn", "typecheck")
 }
 
 type Backend mg.Namespace
