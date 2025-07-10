@@ -28,7 +28,7 @@ export class DruidDataSource extends DataSourceWithBackend<DruidQuery, DruidSett
   }
   async metricFindQuery(query: DruidQuery, options?: any): Promise<MetricFindValue[]> {
     return this.postResource('query-variable', this.applyTemplateVariables(query)).then((response) => {
-      return response;
+      return response as MetricFindValue[];
     });
   }
 }
