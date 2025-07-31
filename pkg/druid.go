@@ -45,8 +45,8 @@ func variableVariants(base string) []string {
 }
 
 type druidQuery struct {
-	Builder  map[string]interface{} `json:"builder"`
-	Settings map[string]interface{} `json:"settings"`
+	Builder  map[string]any `json:"builder"`
+	Settings map[string]any `json:"settings"`
 }
 
 type druidResponse struct {
@@ -55,12 +55,12 @@ type druidResponse struct {
 		Name string
 		Type string
 	}
-	Rows [][]interface{}
+	Rows [][]any
 }
 
 type druidInstanceSettings struct {
 	client               *druid.Client
-	defaultQuerySettings map[string]interface{}
+	defaultQuerySettings map[string]any
 }
 
 func (s *druidInstanceSettings) Dispose() {
@@ -159,9 +159,9 @@ func newDataSourceInstance(ctx context.Context, settings backend.DataSourceInsta
 	}, nil
 }
 
-func prepareQuerySettings(data json.RawMessage) map[string]interface{} {
-	var d map[string]interface{}
-	settings := make(map[string]interface{})
+func prepareQuerySettings(data json.RawMessage) map[string]any {
+	var d map[string]any
+	settings := make(map[string]any)
 	err := json.Unmarshal(data, &d)
 	if err != nil {
 		return settings
@@ -174,8 +174,8 @@ func prepareQuerySettings(data json.RawMessage) map[string]interface{} {
 	return settings
 }
 
-func mergeSettings(settings ...map[string]interface{}) map[string]interface{} {
-	stg := make(map[string]interface{})
+func mergeSettings(settings ...map[string]any) map[string]any {
+	stg := make(map[string]any)
 	for _, s := range settings {
 		for k, v := range s {
 			stg[k] = v
@@ -186,7 +186,9 @@ func mergeSettings(settings ...map[string]interface{}) map[string]interface{} {
 
 func newDatasource() datasource.ServeOpts {
 	ds := &druidDatasource{
-		im: datasource.NewInstanceManager(newDataSourceInstance),
+		im: datasource.NewInstanceManager(func(ctx context.Context, settings backend.DataSourceInstanceSettings) (instancemgmt.Instance, error) {
+			return newDataSourceInstance(ctx, settings)
+		}),
 	}
 
 	return datasource.ServeOpts{
@@ -202,7 +204,7 @@ type druidDatasource struct {
 
 func (ds *druidDatasource) CallResource(ctx context.Context, req *backend.CallResourceRequest, sender backend.CallResourceResponseSender) error {
 	var err error
-	var body interface{}
+	var body any
 	var code int
 	body = "Unknown error"
 	code = 500
@@ -227,13 +229,13 @@ func (ds *druidDatasource) CallResource(ctx context.Context, req *backend.CallRe
 }
 
 type grafanaMetricFindValue struct {
-	Value interface{} `json:"value"`
-	Text  string      `json:"text"`
+	Value any    `json:"value"`
+	Text  string `json:"text"`
 }
 
 func (ds *druidDatasource) QueryVariableData(ctx context.Context, req *backend.CallResourceRequest) ([]grafanaMetricFindValue, error) {
 	log.DefaultLogger.Info("QUERY VARIABLE", "request", string(req.Body))
-	s, err := ds.settings(req.PluginContext)
+	s, err := ds.settings(ctx, req.PluginContext)
 	if err != nil {
 		return []grafanaMetricFindValue{}, err
 	}
@@ -259,7 +261,7 @@ func (ds *druidDatasource) queryVariable(qry []byte, s *druidInstanceSettings) (
 	return response, err
 }
 
-func (ds *druidDatasource) prepareVariableResponse(resp *druidResponse, settings map[string]interface{}) ([]grafanaMetricFindValue, error) {
+func (ds *druidDatasource) prepareVariableResponse(resp *druidResponse, settings map[string]any) ([]grafanaMetricFindValue, error) {
 	// refactor: probably some method that returns a container (make([]whattypeever, 0)) and its related appender func based on column type)
 	response := []grafanaMetricFindValue{}
 	for ic, c := range resp.Columns {
@@ -347,7 +349,7 @@ func (ds *druidDatasource) CheckHealth(ctx context.Context, req *backend.CheckHe
 func (ds *druidDatasource) QueryData(ctx context.Context, req *backend.QueryDataRequest) (*backend.QueryDataResponse, error) {
 	response := backend.NewQueryDataResponse()
 
-	s, err := ds.settings(req.PluginContext)
+	s, err := ds.settings(ctx, req.PluginContext)
 	if err != nil {
 		return response, err
 	}
@@ -359,8 +361,8 @@ func (ds *druidDatasource) QueryData(ctx context.Context, req *backend.QueryData
 	return response, nil
 }
 
-func (ds *druidDatasource) settings(ctx backend.PluginContext) (*druidInstanceSettings, error) {
-	s, err := ds.im.Get(context.Background(), ctx)
+func (ds *druidDatasource) settings(ctx context.Context, pluginCtx backend.PluginContext) (*druidInstanceSettings, error) {
+	s, err := ds.im.Get(ctx, pluginCtx)
 	if err != nil {
 		return nil, err
 	}
@@ -446,7 +448,7 @@ func formatDuration(inter time.Duration) string {
 	return "1ms"
 }
 
-func (ds *druidDatasource) prepareQuery(qry []byte, s *druidInstanceSettings) (druidquerybuilder.Query, map[string]interface{}, error) {
+func (ds *druidDatasource) prepareQuery(qry []byte, s *druidInstanceSettings) (druidquerybuilder.Query, map[string]any, error) {
 	var q druidQuery
 	err := json.Unmarshal(qry, &q)
 	if err != nil {
@@ -459,15 +461,15 @@ func (ds *druidDatasource) prepareQuery(qry []byte, s *druidInstanceSettings) (d
 		return nil, nil, nil
 	}
 
-	var defaultQueryContext map[string]interface{}
+	var defaultQueryContext map[string]any
 	if defaultContextParameters, ok := s.defaultQuerySettings["contextParameters"]; ok {
-		defaultQueryContext = ds.prepareQueryContext(defaultContextParameters.([]interface{}))
+		defaultQueryContext = ds.prepareQueryContext(defaultContextParameters.([]any))
 	}
 	q.Builder["context"] = defaultQueryContext
 	if queryContextParameters, ok := q.Settings["contextParameters"]; ok {
 		q.Builder["context"] = mergeSettings(
 			defaultQueryContext,
-			ds.prepareQueryContext(queryContextParameters.([]interface{})))
+			ds.prepareQueryContext(queryContextParameters.([]any)))
 	}
 	jsonQuery, err := json.Marshal(q.Builder)
 	if err != nil {
@@ -478,18 +480,18 @@ func (ds *druidDatasource) prepareQuery(qry []byte, s *druidInstanceSettings) (d
 	return query, mergeSettings(s.defaultQuerySettings, q.Settings), err
 }
 
-func (ds *druidDatasource) prepareQueryContext(parameters []interface{}) map[string]interface{} {
-	ctx := make(map[string]interface{})
+func (ds *druidDatasource) prepareQueryContext(parameters []any) map[string]any {
+	ctx := make(map[string]any)
 	if parameters != nil {
 		for _, parameter := range parameters {
-			p := parameter.(map[string]interface{})
+			p := parameter.(map[string]any)
 			ctx[p["name"].(string)] = p["value"]
 		}
 	}
 	return ctx
 }
 
-func (ds *druidDatasource) executeQuery(queryRef string, q druidquerybuilder.Query, s *druidInstanceSettings, settings map[string]interface{}) (*druidResponse, error) {
+func (ds *druidDatasource) executeQuery(queryRef string, q druidquerybuilder.Query, s *druidInstanceSettings, settings map[string]any) (*druidResponse, error) {
 	// refactor: probably need to extract per-query preprocessor and postprocessor into a per-query file. load those "plugins" (ak. QueryProcessor ?) into a register and then do something like plugins[q.Type()].preprocess(q) and plugins[q.Type()].postprocess(r)
 	r := &druidResponse{Reference: queryRef}
 	qtyp := q.Type()
@@ -507,7 +509,7 @@ func (ds *druidDatasource) executeQuery(queryRef string, q druidquerybuilder.Que
 	detectColumnType := func(c *struct {
 		Name string
 		Type string
-	}, pos int, rr [][]interface{},
+	}, pos int, rr [][]any,
 	) {
 		t := map[string]int{"nil": 0}
 		for i := 0; i < len(rr); i += int(math.Ceil(float64(len(rr)) / 5.0)) {
@@ -565,13 +567,13 @@ func (ds *druidDatasource) executeQuery(queryRef string, q druidquerybuilder.Que
 	}
 	switch qtyp {
 	case "sql":
-		var sqlr []interface{}
+		var sqlr []any
 		err := json.Unmarshal(result, &sqlr)
 		if err == nil && len(sqlr) > 1 {
 			for _, row := range sqlr[1:] {
-				r.Rows = append(r.Rows, row.([]interface{}))
+				r.Rows = append(r.Rows, row.([]any))
 			}
-			for i, c := range sqlr[0].([]interface{}) {
+			for i, c := range sqlr[0].([]any) {
 				col := struct {
 					Name string
 					Type string
@@ -581,22 +583,22 @@ func (ds *druidDatasource) executeQuery(queryRef string, q druidquerybuilder.Que
 			}
 		}
 	case "timeseries":
-		var tsr []map[string]interface{}
+		var tsr []map[string]any
 		err := json.Unmarshal(result, &tsr)
 		if err == nil && len(tsr) > 0 {
 			columns := []string{"timestamp"}
-			for c := range tsr[0]["result"].(map[string]interface{}) {
+			for c := range tsr[0]["result"].(map[string]any) {
 				columns = append(columns, c)
 			}
 			for _, result := range tsr {
-				var row []interface{}
+				var row []any
 				t := result["timestamp"]
 				if t == nil {
 					// grand total, lets keep it last
 					t = r.Rows[len(r.Rows)-1][0]
 				}
 				row = append(row, t)
-				colResults := result["result"].(map[string]interface{})
+				colResults := result["result"].(map[string]any)
 				for _, c := range columns[1:] {
 					row = append(row, colResults[c])
 				}
@@ -612,21 +614,21 @@ func (ds *druidDatasource) executeQuery(queryRef string, q druidquerybuilder.Que
 			}
 		}
 	case "topN":
-		var tn []map[string]interface{}
+		var tn []map[string]any
 		err := json.Unmarshal(result, &tn)
 		if err == nil && len(tn) > 0 {
 			var columns []string
 			for _, result := range tn {
-				if columns == nil && len(result["result"].([]interface{})) > 0 {
+				if columns == nil && len(result["result"].([]any)) > 0 {
 					columns = append(columns, "timestamp")
-					for c := range result["result"].([]interface{})[0].(map[string]interface{}) {
+					for c := range result["result"].([]any)[0].(map[string]any) {
 						columns = append(columns, c)
 					}
 				}
-				for _, record := range result["result"].([]interface{}) {
-					var row []interface{}
+				for _, record := range result["result"].([]any) {
+					var row []any
 					row = append(row, result["timestamp"])
-					o, ok := record.(map[string]interface{})
+					o, ok := record.(map[string]any)
 					if ok {
 						for _, c := range columns[1:] {
 							row = append(row, o[c])
@@ -645,17 +647,17 @@ func (ds *druidDatasource) executeQuery(queryRef string, q druidquerybuilder.Que
 			}
 		}
 	case "groupBy":
-		var gb []map[string]interface{}
+		var gb []map[string]any
 		err := json.Unmarshal(result, &gb)
 		if err == nil && len(gb) > 0 {
 			columns := []string{"timestamp"}
-			for c := range gb[0]["event"].(map[string]interface{}) {
+			for c := range gb[0]["event"].(map[string]any) {
 				columns = append(columns, c)
 			}
 			for _, result := range gb {
-				var row []interface{}
+				var row []any
 				row = append(row, result["timestamp"])
-				colResults := result["event"].(map[string]interface{})
+				colResults := result["event"].(map[string]any)
 				for _, c := range columns[1:] {
 					row = append(row, colResults[c])
 				}
@@ -671,13 +673,13 @@ func (ds *druidDatasource) executeQuery(queryRef string, q druidquerybuilder.Que
 			}
 		}
 	case "scan":
-		var scanr []map[string]interface{}
+		var scanr []map[string]any
 		err := json.Unmarshal(result, &scanr)
 		if err == nil && len(scanr) > 0 {
-			for _, e := range scanr[0]["events"].([]interface{}) {
-				r.Rows = append(r.Rows, e.([]interface{}))
+			for _, e := range scanr[0]["events"].([]any) {
+				r.Rows = append(r.Rows, e.([]any))
 			}
-			for i, c := range scanr[0]["columns"].([]interface{}) {
+			for i, c := range scanr[0]["columns"].([]any) {
 				col := struct {
 					Name string
 					Type string
@@ -687,18 +689,18 @@ func (ds *druidDatasource) executeQuery(queryRef string, q druidquerybuilder.Que
 			}
 		}
 	case "search":
-		var s []map[string]interface{}
+		var s []map[string]any
 		err := json.Unmarshal(result, &s)
 		if err == nil && len(s) > 0 {
 			columns := []string{"timestamp"}
-			for c := range s[0]["result"].([]interface{})[0].(map[string]interface{}) {
+			for c := range s[0]["result"].([]any)[0].(map[string]any) {
 				columns = append(columns, c)
 			}
 			for _, result := range s {
-				for _, record := range result["result"].([]interface{}) {
-					var row []interface{}
+				for _, record := range result["result"].([]any) {
+					var row []any
 					row = append(row, result["timestamp"])
-					o := record.(map[string]interface{})
+					o := record.(map[string]any)
 					for _, c := range columns[1:] {
 						row = append(row, o[c])
 					}
@@ -715,17 +717,17 @@ func (ds *druidDatasource) executeQuery(queryRef string, q druidquerybuilder.Que
 			}
 		}
 	case "timeBoundary":
-		var tb []map[string]interface{}
+		var tb []map[string]any
 		err := json.Unmarshal(result, &tb)
 		if err == nil && len(tb) > 0 {
 			columns := []string{"timestamp"}
-			for c := range tb[0]["result"].(map[string]interface{}) {
+			for c := range tb[0]["result"].(map[string]any) {
 				columns = append(columns, c)
 			}
 			for _, result := range tb {
-				var row []interface{}
+				var row []any
 				row = append(row, result["timestamp"])
-				colResults := result["result"].(map[string]interface{})
+				colResults := result["result"].(map[string]any)
 				for _, c := range columns[1:] {
 					row = append(row, colResults[c])
 				}
@@ -741,17 +743,17 @@ func (ds *druidDatasource) executeQuery(queryRef string, q druidquerybuilder.Que
 			}
 		}
 	case "dataSourceMetadata":
-		var dsm []map[string]interface{}
+		var dsm []map[string]any
 		err := json.Unmarshal(result, &dsm)
 		if err == nil && len(dsm) > 0 {
 			columns := []string{"timestamp"}
-			for c := range dsm[0]["result"].(map[string]interface{}) {
+			for c := range dsm[0]["result"].(map[string]any) {
 				columns = append(columns, c)
 			}
 			for _, result := range dsm {
-				var row []interface{}
+				var row []any
 				row = append(row, result["timestamp"])
-				colResults := result["result"].(map[string]interface{})
+				colResults := result["result"].(map[string]any)
 				for _, c := range columns[1:] {
 					row = append(row, colResults[c])
 				}
@@ -767,7 +769,7 @@ func (ds *druidDatasource) executeQuery(queryRef string, q druidquerybuilder.Que
 			}
 		}
 	case "segmentMetadata":
-		var sm []map[string]interface{}
+		var sm []map[string]any
 		err := json.Unmarshal(result, &sm)
 		if err == nil && len(sm) > 0 {
 			var columns []string
@@ -776,7 +778,7 @@ func (ds *druidDatasource) executeQuery(queryRef string, q druidquerybuilder.Que
 				for k, v := range sm[0] {
 					if k != "aggregators" && k != "columns" && k != "timestampSpec" {
 						if k == "intervals" {
-							for i := range v.([]interface{}) {
+							for i := range v.([]any) {
 								pos := strconv.Itoa(i)
 								columns = append(columns, "interval_start_"+pos)
 								columns = append(columns, "interval_stop_"+pos)
@@ -787,9 +789,9 @@ func (ds *druidDatasource) executeQuery(queryRef string, q druidquerybuilder.Que
 					}
 				}
 				for _, result := range sm {
-					var row []interface{}
+					var row []any
 					for _, c := range columns {
-						var col interface{}
+						var col any
 						if strings.HasPrefix(c, "interval_") {
 							parts := strings.Split(c, "_")
 							pos := 0
@@ -800,7 +802,7 @@ func (ds *druidDatasource) executeQuery(queryRef string, q druidquerybuilder.Que
 							if err != nil {
 								return r, errors.New("interval parsing goes wrong")
 							}
-							ii := result["intervals"].([]interface{})[idx]
+							ii := result["intervals"].([]any)[idx]
 							col = strings.Split(ii.(string), "/")[pos]
 						} else {
 							col = result[c]
@@ -810,22 +812,22 @@ func (ds *druidDatasource) executeQuery(queryRef string, q druidquerybuilder.Que
 					r.Rows = append(r.Rows, row)
 				}
 			case "aggregators":
-				for _, v := range sm[0]["aggregators"].(map[string]interface{}) {
+				for _, v := range sm[0]["aggregators"].(map[string]any) {
 					columns = append(columns, "aggregator")
-					for k := range v.(map[string]interface{}) {
+					for k := range v.(map[string]any) {
 						columns = append(columns, k)
 					}
 					break
 				}
 				for _, result := range sm {
-					for k, v := range result["aggregators"].(map[string]interface{}) {
-						var row []interface{}
+					for k, v := range result["aggregators"].(map[string]any) {
+						var row []any
 						for _, c := range columns {
-							var col interface{}
+							var col any
 							if c == "aggregator" {
 								col = k
 							} else {
-								col = v.(map[string]interface{})[c]
+								col = v.(map[string]any)[c]
 							}
 							row = append(row, col)
 						}
@@ -833,22 +835,22 @@ func (ds *druidDatasource) executeQuery(queryRef string, q druidquerybuilder.Que
 					}
 				}
 			case "columns":
-				for _, v := range sm[0]["columns"].(map[string]interface{}) {
+				for _, v := range sm[0]["columns"].(map[string]any) {
 					columns = append(columns, "column")
-					for k := range v.(map[string]interface{}) {
+					for k := range v.(map[string]any) {
 						columns = append(columns, k)
 					}
 					break
 				}
 				for _, result := range sm {
-					for k, v := range result["columns"].(map[string]interface{}) {
-						var row []interface{}
+					for k, v := range result["columns"].(map[string]any) {
+						var row []any
 						for _, c := range columns {
-							var col interface{}
+							var col any
 							if c == "column" {
 								col = k
 							} else {
-								col = v.(map[string]interface{})[c]
+								col = v.(map[string]any)[c]
 							}
 							row = append(row, col)
 						}
@@ -856,13 +858,13 @@ func (ds *druidDatasource) executeQuery(queryRef string, q druidquerybuilder.Que
 					}
 				}
 			case "timestampspec":
-				for k := range sm[0]["timestampSpec"].(map[string]interface{}) {
+				for k := range sm[0]["timestampSpec"].(map[string]any) {
 					columns = append(columns, k)
 				}
 				for _, result := range sm {
-					var row []interface{}
+					var row []any
 					for _, c := range columns {
-						col := result["timestampSpec"].(map[string]interface{})[c]
+						col := result["timestampSpec"].(map[string]any)[c]
 						row = append(row, col)
 					}
 					r.Rows = append(r.Rows, row)
@@ -884,7 +886,7 @@ func (ds *druidDatasource) executeQuery(queryRef string, q druidquerybuilder.Que
 	return r, err
 }
 
-func (ds *druidDatasource) prepareResponse(resp *druidResponse, settings map[string]interface{}) (backend.DataResponse, error) {
+func (ds *druidDatasource) prepareResponse(resp *druidResponse, settings map[string]any) (backend.DataResponse, error) {
 	// refactor: probably some method that returns a container (make([]whattypeever, 0)) and its related appender func based on column type)
 	response := backend.DataResponse{}
 	frame := data.NewFrame(resp.Reference)
@@ -903,7 +905,7 @@ func (ds *druidDatasource) prepareResponse(resp *druidResponse, settings map[str
 		response.Error = fmt.Errorf("query response limit exceeded (> %d rows): consider adding filters and/or reducing the query time range", int(responseLimit))
 	}
 	for ic, c := range resp.Columns {
-		var ff interface{}
+		var ff any
 		columnIsEmpty := true
 		switch c.Type {
 		case "string":
@@ -994,7 +996,7 @@ func (ds *druidDatasource) prepareResponse(resp *druidResponse, settings map[str
 	return response, nil
 }
 
-func longToLog(longFrame *data.Frame, settings map[string]interface{}) (*data.Frame, error) {
+func longToLog(longFrame *data.Frame, settings map[string]any) (*data.Frame, error) {
 	logFrame := data.NewFrame("response")
 	logFrame.SetMeta(&data.FrameMeta{PreferredVisualization: data.VisTypeLogs})
 	// fetch settings
@@ -1036,4 +1038,3 @@ func longToLog(longFrame *data.Frame, settings map[string]interface{}) (*data.Fr
 	}
 	return logFrame, nil
 }
-

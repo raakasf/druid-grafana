@@ -19,7 +19,7 @@ export const QueryEditor = (props: Props) => {
   /*TODO merging settings that way is not good: things like query context won't get merged
   the query settings context will replace the datasource query settings context instead of merging
   backend side of the plugin does already merge them properly: we need to move the (proper) merging from backend to frontend*/
-  const settingsOptions = { settings: {...datasourceQuerySettings, ...settings} || {} };
+  const settingsOptions = { settings: {...datasourceQuerySettings, ...settings} };
   const onBuilderOptionsChange = (queryBuilderOptions: QueryBuilderOptions) => {
     const { query, onChange, onRunQuery } = props;
     //todo: need to implement some kind of hook system to alter a query from modules
@@ -62,12 +62,11 @@ export const QueryEditor = (props: Props) => {
       </ToolbarButtonRow>
       {showDrawer && (
         <Drawer
-          inline={false}
           title="Settings"
           subtitle="The settings to attach to the query. Those settings will be merged with the ones defined at datasource level."
           closeOnMaskClick={true}
           scrollableContent={true}
-          width="42%"
+          size="md"
           onClose={() => {
             setShowDrawer(false);
           }}

@@ -28,8 +28,8 @@ const ISO8601DURATIONPATTERN = new RegExp(
 
 const useInterval = (interval = ''): any => {
   const intervalPartToDate = (part: string): any => {
-    var date: Date | undefined = undefined;
-    var datePlaceholder: string | undefined = undefined;
+    let date: Date | undefined = undefined;
+    let datePlaceholder: string | undefined = undefined;
     const d = new Date(part);
     if (d instanceof Date && !isNaN(d.getFullYear())) {
       date = d;

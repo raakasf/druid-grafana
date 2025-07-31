@@ -22,8 +22,8 @@ interface Props extends QueryBuilderFieldProps {
 }
 
 const useDate = (value = ''): any => {
-  var date: Date | undefined = undefined;
-  var datePlaceholder: string | undefined = undefined;
+  let date: Date | undefined = undefined;
+  let datePlaceholder: string | undefined = undefined;
   const d = new Date(value);
   if (d instanceof Date && !isNaN(d.getFullYear())) {
     date = d;

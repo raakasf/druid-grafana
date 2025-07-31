@@ -56,12 +56,11 @@ export const VariableQueryEditor = (props: Props) => {
       </ToolbarButtonRow>
       {showDrawer && (
         <Drawer
-          inline={false}
           title="Settings"
           subtitle="The settings to attach to the query. Those settings will be merged with the ones defined at datasource level."
           closeOnMaskClick={true}
           scrollableContent={true}
-          width="42%"
+          size="md"
           onClose={() => {
             setShowDrawer(false);
           }}

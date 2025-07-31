@@ -1,4 +1,5 @@
 {
+  "$schema": "https://raw.githubusercontent.com/grafana/grafana/main/docs/sources/developers/plugins/plugin.schema.json",
   "type": "datasource",
   "name": "Druid",
   "id": "grafadruid-druid-datasource",
@@ -6,6 +7,7 @@
   "backend": true,
   "alerting": true,
   "logs": true,
+  "annotations": true,
   "executable": "grafadruid-druid-datasource",
   "info": {
     "description": "Connects Grafana to Druid",
@@ -44,8 +46,7 @@
     "updated": "%TODAY%"
   },
   "dependencies": {
-    "grafanaDependency": ">=7.0.0",
-    "grafanaVersion": "7.x.x",
+    "grafanaDependency": ">=9.5.0",
     "plugins": []
   }
 }
