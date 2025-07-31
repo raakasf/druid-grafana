@@ -78,7 +78,8 @@
     "react-dom": "18.3.1"
   },
   "resolutions": {
-    "eslint-plugin-jsdoc": "^46.8.0"
+    "eslint-plugin-jsdoc": "^46.8.0",
+    "form-data": "^4.0.4"
   },
   "packageManager": "yarn@1.22.22"
 }
