@@ -211,5 +211,8 @@ func (Backend) Test() error { return runToolboxCmd("./mage", "sdk:test") }
 // BuildAll builds the plugin (both frontend and backend)
 func BuildAll() { mg.SerialDeps(Frontend{}.Build, Backend{}.BuildAll) }
 
+// Coverage runs backend tests and makes a coverage report (wrapper for backend:coverage)
+func Coverage() error { return Backend{}.Coverage() }
+
 // Default configures the default target (build all plugin components)
 var Default = BuildAll

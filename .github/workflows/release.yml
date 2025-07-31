@@ -17,6 +17,8 @@ jobs:
       - uses: actions/checkout@v4
 
       - uses: grafana/plugin-actions/build-plugin@main
+        env:
+          GRAFADRUID_USE_DOCKER: 0
         with:
           policy_token: ${{ secrets.GRAFANA_ACCESS_POLICY_TOKEN }}
           attestation: true
