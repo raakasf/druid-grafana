@@ -19,7 +19,6 @@ import (
 	druidquerybuilder "github.com/grafadruid/go-druid/builder"
 	druidquery "github.com/grafadruid/go-druid/builder/query"
 	"github.com/grafana/grafana-plugin-sdk-go/backend"
-	"github.com/grafana/grafana-plugin-sdk-go/backend/datasource"
 	"github.com/grafana/grafana-plugin-sdk-go/backend/instancemgmt"
 	"github.com/grafana/grafana-plugin-sdk-go/backend/log"
 	"github.com/grafana/grafana-plugin-sdk-go/data"
@@ -184,22 +183,23 @@ func mergeSettings(settings ...map[string]any) map[string]any {
 	return stg
 }
 
-func newDatasource() datasource.ServeOpts {
-	ds := &druidDatasource{
-		im: datasource.NewInstanceManager(func(ctx context.Context, settings backend.DataSourceInstanceSettings) (instancemgmt.Instance, error) {
-			return newDataSourceInstance(ctx, settings)
-		}),
+func newDatasource(ctx context.Context, settings backend.DataSourceInstanceSettings) (instancemgmt.Instance, error) {
+	inst, err := newDataSourceInstance(ctx, settings)
+	if err != nil {
+		return nil, err
 	}
 
-	return datasource.ServeOpts{
-		QueryDataHandler:    ds,
-		CheckHealthHandler:  ds,
-		CallResourceHandler: ds,
-	}
+	return &druidDatasource{
+		settings: inst.(*druidInstanceSettings),
+	}, nil
 }
 
 type druidDatasource struct {
-	im instancemgmt.InstanceManager
+	settings *druidInstanceSettings
+}
+
+func (ds *druidDatasource) Dispose() {
+	ds.settings.Dispose()
 }
 
 func (ds *druidDatasource) CallResource(ctx context.Context, req *backend.CallResourceRequest, sender backend.CallResourceResponseSender) error {
@@ -235,11 +235,7 @@ type grafanaMetricFindValue struct {
 
 func (ds *druidDatasource) QueryVariableData(ctx context.Context, req *backend.CallResourceRequest) ([]grafanaMetricFindValue, error) {
 	log.DefaultLogger.Info("QUERY VARIABLE", "request", string(req.Body))
-	s, err := ds.settings(ctx, req.PluginContext)
-	if err != nil {
-		return []grafanaMetricFindValue{}, err
-	}
-	return ds.queryVariable(req.Body, s)
+	return ds.queryVariable(req.Body, ds.settings)
 }
 
 func (ds *druidDatasource) queryVariable(qry []byte, s *druidInstanceSettings) ([]grafanaMetricFindValue, error) {
@@ -329,13 +325,7 @@ func (ds *druidDatasource) CheckHealth(ctx context.Context, req *backend.CheckHe
 		Message: "Can't connect to Druid",
 	}
 
-	i, err := ds.im.Get(ctx, req.PluginContext)
-	if err != nil {
-		result.Message = "Can't get Druid instance: " + err.Error()
-		return result, nil
-	}
-
-	status, _, err := i.(*druidInstanceSettings).client.Common().Status()
+	status, _, err := ds.settings.client.Common().Status()
 	if err != nil {
 		result.Message = "Can't fetch Druid status: " + err.Error()
 		return result, nil
@@ -349,24 +339,11 @@ func (ds *druidDatasource) CheckHealth(ctx context.Context, req *backend.CheckHe
 func (ds *druidDatasource) QueryData(ctx context.Context, req *backend.QueryDataRequest) (*backend.QueryDataResponse, error) {
 	response := backend.NewQueryDataResponse()
 
-	s, err := ds.settings(ctx, req.PluginContext)
-	if err != nil {
-		return response, err
-	}
-
 	for _, q := range req.Queries {
-		response.Responses[q.RefID] = ds.query(q, s)
+		response.Responses[q.RefID] = ds.query(q, ds.settings)
 	}
 
 	return response, nil
-}
-
-func (ds *druidDatasource) settings(ctx context.Context, pluginCtx backend.PluginContext) (*druidInstanceSettings, error) {
-	s, err := ds.im.Get(ctx, pluginCtx)
-	if err != nil {
-		return nil, err
-	}
-	return s.(*druidInstanceSettings), nil
 }
 
 func (ds *druidDatasource) query(qry backend.DataQuery, s *druidInstanceSettings) backend.DataResponse {
