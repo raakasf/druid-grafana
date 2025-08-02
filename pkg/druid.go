@@ -234,26 +234,26 @@ type grafanaMetricFindValue struct {
 }
 
 func (ds *druidDatasource) QueryVariableData(ctx context.Context, req *backend.CallResourceRequest) ([]grafanaMetricFindValue, error) {
-	log.DefaultLogger.Info("QUERY VARIABLE", "request", string(req.Body))
+	log.DefaultLogger.Debug("QUERY VARIABLE", "request", string(req.Body))
 	return ds.queryVariable(req.Body, ds.settings)
 }
 
 func (ds *druidDatasource) queryVariable(qry []byte, s *druidInstanceSettings) ([]grafanaMetricFindValue, error) {
-	log.DefaultLogger.Info("DRUID EXECUTE QUERY VARIABLE", "grafana_query", string(qry))
+	log.DefaultLogger.Debug("DRUID EXECUTE QUERY VARIABLE", "grafana_query", string(qry))
 	// feature: probably implement a short (1s ? 500ms ? configurable in datasource ? beware memory: constrain size ?) life cache (druidInstanceSettings.cache ?) and early return then
 	response := []grafanaMetricFindValue{}
 	q, stg, err := ds.prepareQuery(qry, s)
 	if err != nil {
 		return response, err
 	}
-	log.DefaultLogger.Info("DRUID EXECUTE QUERY VARIABLE", "druid_query", q)
+	log.DefaultLogger.Debug("DRUID EXECUTE QUERY VARIABLE", "druid_query", q)
 	r, err := ds.executeQuery("variable", q, s, stg)
 	if err != nil {
 		return response, err
 	}
-	log.DefaultLogger.Info("DRUID EXECUTE QUERY VARIABLE", "druid_response", r)
+	log.DefaultLogger.Debug("DRUID EXECUTE QUERY VARIABLE", "druid_response", r)
 	response, err = ds.prepareVariableResponse(r, stg)
-	log.DefaultLogger.Info("DRUID EXECUTE QUERY VARIABLE", "grafana_response", response)
+	log.DefaultLogger.Debug("DRUID EXECUTE QUERY VARIABLE", "grafana_response", response)
 	return response, err
 }
 
@@ -347,7 +347,7 @@ func (ds *druidDatasource) QueryData(ctx context.Context, req *backend.QueryData
 }
 
 func (ds *druidDatasource) query(qry backend.DataQuery, s *druidInstanceSettings) backend.DataResponse {
-	log.DefaultLogger.Info("DRUID EXECUTE QUERY", "grafana_query", qry)
+	log.DefaultLogger.Debug("DRUID EXECUTE QUERY", "grafana_query", qry)
 	rawQuery := interpolateVariables(string(qry.JSON), qry.Interval, qry.TimeRange.Duration())
 
 	// feature: probably implement a short (1s ? 500ms ? configurable in datasource ? beware memory: constrain size ?) life cache (druidInstanceSettings.cache ?) and early return then
@@ -357,19 +357,19 @@ func (ds *druidDatasource) query(qry backend.DataQuery, s *druidInstanceSettings
 		response.Error = err
 		return response
 	}
-	log.DefaultLogger.Info("DRUID EXECUTE QUERY", "druid_query", q)
+	log.DefaultLogger.Debug("DRUID EXECUTE QUERY", "druid_query", q)
 	r, err := ds.executeQuery(qry.RefID, q, s, stg)
 	if err != nil {
 		response.Error = err
 		return response
 	}
-	log.DefaultLogger.Info("DRUID EXECUTE QUERY", "druid_response", r)
+	log.DefaultLogger.Debug("DRUID EXECUTE QUERY", "druid_response", r)
 	response, err = ds.prepareResponse(r, stg)
 	if err != nil {
 		// note: error could be set from prepareResponse but this gives a chance to react to error here
 		response.Error = err
 	}
-	log.DefaultLogger.Info("DRUID EXECUTE QUERY", "grafana_response", response)
+	log.DefaultLogger.Debug("DRUID EXECUTE QUERY", "grafana_response", response)
 	return response
 }
 
