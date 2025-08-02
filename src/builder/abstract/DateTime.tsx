@@ -1,20 +1,12 @@
 import React, { ChangeEvent } from 'react';
-import { InlineLabel, stylesFactory, useTheme } from '@grafana/ui';
-import { GrafanaTheme } from '@grafana/data';
+import { InlineLabel, useStyles2 } from '@grafana/ui';
+import { GrafanaTheme2 } from '@grafana/data';
 import { QueryBuilderFieldProps } from './types';
 import { onBuilderChange } from '.';
-import { css, cx, injectGlobal } from '@emotion/css';
+import { css, cx } from '@emotion/css';
 import DatePicker from 'react-datepicker';
 import 'react-datepicker/dist/react-datepicker.css';
 
-injectGlobal(`
-  .react-datepicker__triangle {
-    display: none;
-  }
-  .react-datepicker-popper {
-    z-index: 1000 !important;
-  }
-`);
 
 interface Props extends QueryBuilderFieldProps {
   format: string;
@@ -45,8 +37,7 @@ export const DateTime = (props: Props) => {
     onBuilderChange(props, date.toISOString());
   };
   const { label, description, format, time } = props;
-  const theme = useTheme();
-  const styles = getStyles(theme);
+  const styles = useStyles2(getStyles);
   return (
     <>
       <InlineLabel tooltip={description} width="auto">
@@ -65,14 +56,18 @@ export const DateTime = (props: Props) => {
   );
 };
 
-const getStyles = stylesFactory((theme: GrafanaTheme) => {
-  return {
-    picker: css`
-      & input {
-        border: 1px solid ${theme.colors.border2};
-        height: 32px;
-        margin-right: 4px;
-      }
-    `,
-  };
+const getStyles = (theme: GrafanaTheme2) => ({
+  picker: css`
+    & input {
+      border: 1px solid ${theme.colors.border.medium};
+      height: 32px;
+      margin-right: 4px;
+    }
+    .react-datepicker__triangle {
+      display: none;
+    }
+    .react-datepicker-popper {
+      z-index: 1000 !important;
+    }
+  `,
 });
