@@ -1,6 +1,6 @@
 {
   "name": "druid-grafana",
-  "version": "1.6.2",
+  "version": "1.7.0",
   "description": "Connects Grafana to Druid",
   "scripts": {
     "build": "webpack -c ./.config/webpack/webpack.config.ts --env production",
