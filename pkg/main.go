@@ -16,7 +16,7 @@ func main() {
 	// from Grafana to create different instances of DruidDatasource (per datasource
 	// ID). When datasource configuration changed Dispose method will be called and
 	// new datasource instance created using NewDatasource factory.
-	if err := datasource.Manage("druid-datasource", newDatasource, datasource.ManageOpts{}); err != nil {
+	if err := datasource.Manage("grafadruid-druid-datasource", newDatasource, datasource.ManageOpts{}); err != nil {
 		log.DefaultLogger.Error(err.Error())
 		os.Exit(1)
 	}
