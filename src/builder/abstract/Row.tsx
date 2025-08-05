@@ -1,6 +1,6 @@
 import React, { ReactNode } from 'react';
-import { InlineFieldRow, stylesFactory, useTheme } from '@grafana/ui';
-import { GrafanaTheme } from '@grafana/data';
+import { InlineFieldRow, useStyles2 } from '@grafana/ui';
+import { GrafanaTheme2 } from '@grafana/data';
 import { css, cx } from '@emotion/css';
 
 interface Props {
@@ -8,20 +8,17 @@ interface Props {
 }
 
 export const Row = (props: Props) => {
-  const theme = useTheme();
-  const styles = getStyles(theme);
+  const styles = useStyles2(getStyles);
   return <InlineFieldRow className={cx(styles.row)}>{props.children}</InlineFieldRow>;
 };
 
-const getStyles = stylesFactory((theme: GrafanaTheme) => {
-  return {
-    row: css`
-      width: 100%;
-      padding-bottom: 5px;
-      & > & {
-        border-left: 1px solid ${theme.colors.border2};
-        padding: 5px 0 5px 10px;
-      }
-    `,
-  };
+const getStyles = (theme: GrafanaTheme2) => ({
+  row: css`
+    width: 100%;
+    padding-bottom: 5px;
+    & > & {
+      border-left: 1px solid ${theme.colors.border.medium};
+      padding: 5px 0 5px 10px;
+    }
+  `,
 });
